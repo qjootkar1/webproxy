@@ -163,26 +163,32 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Invalid URL' });
   }
 
-  // ── YouTube → Invidious 자동 변환 ──
-  const INVIDIOUS = 'https://inv.nadeko.net';
+  // ── YouTube → Invidious 직접 리다이렉트 (CSS/JS 완전 로딩) ──
+  const INVIDIOUS_INSTANCES = [
+    'https://inv.nadeko.net',
+    'https://invidious.privacydev.net',
+    'https://yt.artemislena.eu',
+  ];
+  const INVIDIOUS = INVIDIOUS_INSTANCES[0];
   const ytHosts = ['youtube.com','www.youtube.com','m.youtube.com','youtu.be','music.youtube.com'];
   if (ytHosts.includes(targetUrl.hostname)) {
     let invPath = targetUrl.pathname + targetUrl.search;
     if (targetUrl.hostname === 'youtu.be') {
       const id = targetUrl.pathname.replace('/', '');
-      invPath = '/watch?v=' + id + (targetUrl.searchParams.get('t') ? '&t=' + targetUrl.searchParams.get('t') : '');
+      const t = targetUrl.searchParams.get('t');
+      invPath = '/watch?v=' + id + (t ? '&t=' + t : '');
     }
-    const invUrl = INVIDIOUS + invPath;
-    url = invUrl;
-    try { targetUrl = new URL(url); } catch {}
+    // 직접 브라우저 리다이렉트 → Invidious가 CSS/JS 포함 완전히 로딩
+    res.setHeader('Location', INVIDIOUS + invPath);
+    return res.status(302).end();
   }
 
-  // ── Google 검색 → Bing 대체 ──
+  // ── Google 검색 → Bing 직접 리다이렉트 ──
   const googleHosts = ['google.com','www.google.com','google.co.kr','www.google.co.kr'];
-  if (googleHosts.includes(targetUrl.hostname) && targetUrl.pathname === '/search') {
+  if (googleHosts.includes(targetUrl.hostname) && (targetUrl.pathname === '/search' || targetUrl.searchParams.get('q'))) {
     const q = targetUrl.searchParams.get('q') || '';
-    url = 'https://www.bing.com/search?q=' + encodeURIComponent(q);
-    try { targetUrl = new URL(url); } catch {}
+    res.setHeader('Location', 'https://www.bing.com/search?q=' + encodeURIComponent(q));
+    return res.status(302).end();
   }
 
   // Forward request headers
