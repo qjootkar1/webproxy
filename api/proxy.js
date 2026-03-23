@@ -163,6 +163,28 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Invalid URL' });
   }
 
+  // ── YouTube → Invidious 자동 변환 ──
+  const INVIDIOUS = 'https://inv.nadeko.net';
+  const ytHosts = ['youtube.com','www.youtube.com','m.youtube.com','youtu.be','music.youtube.com'];
+  if (ytHosts.includes(targetUrl.hostname)) {
+    let invPath = targetUrl.pathname + targetUrl.search;
+    if (targetUrl.hostname === 'youtu.be') {
+      const id = targetUrl.pathname.replace('/', '');
+      invPath = '/watch?v=' + id + (targetUrl.searchParams.get('t') ? '&t=' + targetUrl.searchParams.get('t') : '');
+    }
+    const invUrl = INVIDIOUS + invPath;
+    url = invUrl;
+    try { targetUrl = new URL(url); } catch {}
+  }
+
+  // ── Google 검색 → Bing 대체 ──
+  const googleHosts = ['google.com','www.google.com','google.co.kr','www.google.co.kr'];
+  if (googleHosts.includes(targetUrl.hostname) && targetUrl.pathname === '/search') {
+    const q = targetUrl.searchParams.get('q') || '';
+    url = 'https://www.bing.com/search?q=' + encodeURIComponent(q);
+    try { targetUrl = new URL(url); } catch {}
+  }
+
   // Forward request headers
   const forwardHeaders = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
