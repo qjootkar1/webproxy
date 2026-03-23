@@ -68,11 +68,31 @@ function rewriteHtml(html, base, targetUrl) {
   const proxyScript = `
 <script>
 (function() {
+  // ── Discord: WebSocket 직접 연결 허용 ──
+  // Discord WebSocket은 프록시 안 거치고 직접 연결해야 작동
+  const _WS = window.WebSocket;
+  window.WebSocket = function(url, protocols) {
+    // Discord gateway WebSocket은 직접 연결
+    if (url && (url.includes('gateway.discord.gg') || url.includes('discord.gg') || url.includes('discord.com/api/v'))) {
+      return new _WS(url, protocols);
+    }
+    return new _WS(url, protocols);
+  };
+  window.WebSocket.prototype = _WS.prototype;
+  window.WebSocket.CONNECTING = _WS.CONNECTING;
+  window.WebSocket.OPEN = _WS.OPEN;
+  window.WebSocket.CLOSING = _WS.CLOSING;
+  window.WebSocket.CLOSED = _WS.CLOSED;
+
   // Override fetch
   const _fetch = window.fetch;
   window.fetch = function(url, opts) {
     try {
       const abs = new URL(url, '${base.href}').href;
+      // Discord API 요청은 직접 연결
+      if (abs.includes('discord.com/api') || abs.includes('discordapp.com') || abs.includes('discord.gg')) {
+        return _fetch(abs, opts);
+      }
       if (!abs.startsWith(location.origin)) {
         return _fetch('/api/proxy?url=' + encodeURIComponent(abs), opts);
       }
@@ -85,6 +105,11 @@ function rewriteHtml(html, base, targetUrl) {
   XMLHttpRequest.prototype.open = function(method, url) {
     try {
       const abs = new URL(url, '${base.href}').href;
+      // Discord API는 직접
+      if (abs.includes('discord.com/api') || abs.includes('discordapp.com')) {
+        arguments[1] = abs;
+        return _open.apply(this, arguments);
+      }
       if (!abs.startsWith(location.origin)) {
         arguments[1] = '/api/proxy?url=' + encodeURIComponent(abs);
       }
@@ -163,13 +188,11 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Invalid URL' });
   }
 
-  // ── YouTube → Invidious 직접 리다이렉트 (CSS/JS 완전 로딩) ──
-  const INVIDIOUS_INSTANCES = [
-    'https://inv.nadeko.net',
-    'https://invidious.privacydev.net',
-    'https://yt.artemislena.eu',
-  ];
-  const INVIDIOUS = INVIDIOUS_INSTANCES[0];
+  // ════════════════════════════════════════
+  // 오픈소스 대체 프론트엔드 자동 리다이렉트
+  // ════════════════════════════════════════
+
+  // ── YouTube → Invidious ──
   const ytHosts = ['youtube.com','www.youtube.com','m.youtube.com','youtu.be','music.youtube.com'];
   if (ytHosts.includes(targetUrl.hostname)) {
     let invPath = targetUrl.pathname + targetUrl.search;
@@ -178,12 +201,48 @@ export default async function handler(req, res) {
       const t = targetUrl.searchParams.get('t');
       invPath = '/watch?v=' + id + (t ? '&t=' + t : '');
     }
-    // 직접 브라우저 리다이렉트 → Invidious가 CSS/JS 포함 완전히 로딩
-    res.setHeader('Location', INVIDIOUS + invPath);
+    res.setHeader('Location', 'https://inv.nadeko.net' + invPath);
     return res.status(302).end();
   }
 
-  // ── Google 검색 → Bing 직접 리다이렉트 ──
+  // ── Twitter / X → Nitter ──
+  const twitterHosts = ['twitter.com','www.twitter.com','x.com','www.x.com','mobile.twitter.com'];
+  if (twitterHosts.includes(targetUrl.hostname)) {
+    res.setHeader('Location', 'https://nitter.privacydev.net' + targetUrl.pathname + targetUrl.search);
+    return res.status(302).end();
+  }
+
+  // ── Instagram → Proxigram ──
+  const igHosts = ['instagram.com','www.instagram.com','m.instagram.com'];
+  if (igHosts.includes(targetUrl.hostname)) {
+    // Proxigram: open-source Instagram frontend
+    res.setHeader('Location', 'https://proxigram.privacydev.net' + targetUrl.pathname + targetUrl.search);
+    return res.status(302).end();
+  }
+
+  // ── Reddit → Redlib ──
+  const redditHosts = ['reddit.com','www.reddit.com','old.reddit.com','m.reddit.com','np.reddit.com'];
+  if (redditHosts.includes(targetUrl.hostname)) {
+    res.setHeader('Location', 'https://redlib.privacydev.net' + targetUrl.pathname + targetUrl.search);
+    return res.status(302).end();
+  }
+
+  // ── TikTok → ProxiTok ──
+  const tiktokHosts = ['tiktok.com','www.tiktok.com','m.tiktok.com'];
+  if (tiktokHosts.includes(targetUrl.hostname)) {
+    res.setHeader('Location', 'https://proxitok.privacydev.net' + targetUrl.pathname + targetUrl.search);
+    return res.status(302).end();
+  }
+
+  // ── Discord → 프록시 로드 + WebSocket 직접 연결 ──
+  const discordHosts = ['discord.com','www.discord.com','ptb.discord.com','canary.discord.com','discordapp.com'];
+  if (discordHosts.includes(targetUrl.hostname)) {
+    // 페이지 자체는 프록시로 가져오되 WebSocket은 직접 연결
+    // 방화벽이 도메인 기반 차단이면 이걸로 뚫림
+    // 그냥 통과시킴 (리다이렉트 없이 프록시 처리)
+  }
+
+  // ── Google 검색 → Bing ──
   const googleHosts = ['google.com','www.google.com','google.co.kr','www.google.co.kr'];
   if (googleHosts.includes(targetUrl.hostname) && (targetUrl.pathname === '/search' || targetUrl.searchParams.get('q'))) {
     const q = targetUrl.searchParams.get('q') || '';
