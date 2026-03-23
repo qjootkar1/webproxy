@@ -1,5 +1,3 @@
-export const config = { maxDuration: 30 };
-
 const BLOCKED_HEADERS = new Set([
   'content-security-policy',
   'content-security-policy-report-only',
