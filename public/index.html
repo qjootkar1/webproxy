@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SwiftProxy — 빠르고 익명의 웹 프록시</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #05070f;
+      --surface: #0c0f1e;
+      --card: #0f1526;
+      --border: rgba(99,179,237,0.12);
+      --border-h: rgba(56,189,248,0.3);
+      --accent: #38bdf8;
+      --accent2: #818cf8;
+      --text: #e2e8f0;
+      --muted: #4b5675;
+      --muted2: #64748b;
+      --success: #34d399;
+    }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: 'Sora', sans-serif;
+      background: var(--bg); color: var(--text);
+      min-height: 100vh; overflow-x: hidden;
+    }
+    body::before {
+      content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+      background:
+        radial-gradient(ellipse 90% 70% at 15% -5%, rgba(56,189,248,0.09) 0%, transparent 55%),
+        radial-gradient(ellipse 70% 60% at 85% 105%, rgba(129,140,248,0.08) 0%, transparent 55%);
+    }
+    body::after {
+      content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+      background-image: linear-gradient(rgba(56,189,248,0.025) 1px,transparent 1px),linear-gradient(90deg,rgba(56,189,248,0.025) 1px,transparent 1px);
+      background-size: 44px 44px;
+    }
+    .page { position: relative; z-index: 1; }
+
+    nav {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 18px 48px; border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(16px); background: rgba(5,7,15,0.75);
+      position: sticky; top: 0; z-index: 200;
+    }
+    .logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+    .logo-mark {
+      width: 34px; height: 34px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 9px; display: flex; align-items: center; justify-content: center;
+      font-size: 18px; font-weight: 800; color: #05070f;
+    }
+    .logo-text { font-size: 1.2rem; font-weight: 700; letter-spacing: -0.02em; color: var(--text); }
+    .logo-text span { color: var(--accent); }
+    .nav-links { display: flex; gap: 8px; }
+    .nav-links a {
+      color: var(--muted2); text-decoration: none; font-size: 0.875rem;
+      padding: 7px 14px; border-radius: 8px; transition: color 0.2s, background 0.2s;
+    }
+    .nav-links a:hover { color: var(--text); background: rgba(255,255,255,0.04); }
+    .nav-pill {
+      background: linear-gradient(135deg, rgba(56,189,248,0.1), rgba(129,140,248,0.1));
+      border: 1px solid var(--border); border-radius: 20px; padding: 6px 16px;
+      font-size: 0.75rem; color: var(--accent); font-weight: 600; letter-spacing: 0.06em;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .live-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--success); box-shadow: 0 0 8px var(--success);
+      animation: pulse 2s ease infinite;
+    }
+    @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.6;transform:scale(0.85)} }
+
+    .hero { text-align: center; padding: 80px 24px 64px; }
+    .hero-tag {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: rgba(56,189,248,0.06); border: 1px solid rgba(56,189,248,0.2);
+      border-radius: 20px; padding: 7px 18px; margin-bottom: 32px;
+      font-size: 0.72rem; font-weight: 600; letter-spacing: 0.1em;
+      text-transform: uppercase; color: var(--accent);
+    }
+    .blink { animation: blink 1.6s ease infinite; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.25} }
+    h1 { font-size: clamp(2.2rem,5.5vw,4rem); font-weight: 800; line-height: 1.06; letter-spacing: -0.035em; margin-bottom: 20px; }
+    h1 .grad {
+      background: linear-gradient(95deg, var(--accent) 0%, var(--accent2) 60%, #c084fc 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    .hero-sub { color: var(--muted2); font-size: 1rem; max-width: 500px; margin: 0 auto 52px; line-height: 1.75; font-weight: 300; }
+
+    .proxy-box {
+      max-width: 760px; margin: 0 auto;
+      background: linear-gradient(160deg, rgba(15,21,38,0.95), rgba(12,15,30,0.95));
+      border: 1px solid var(--border); border-radius: 22px; padding: 32px 36px 28px;
+      box-shadow: 0 0 80px rgba(56,189,248,0.06), 0 32px 60px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04);
+    }
+    .input-row { display: flex; gap: 10px; margin-bottom: 20px; }
+    .url-wrap { flex: 1; position: relative; }
+    .url-icon { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 16px; pointer-events: none; }
+    .url-input {
+      width: 100%; background: rgba(5,7,15,0.8); border: 1px solid var(--border);
+      border-radius: 12px; padding: 14px 16px 14px 42px;
+      font-family: 'JetBrains Mono', monospace; font-size: 0.875rem;
+      color: var(--text); outline: none; transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .url-input::placeholder { color: var(--muted); }
+    .url-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(56,189,248,0.1); }
+    .go-btn {
+      background: linear-gradient(135deg, #38bdf8, #0ea5e9);
+      border: none; border-radius: 12px; padding: 14px 28px;
+      font-family: 'Sora', sans-serif; font-size: 0.9rem; font-weight: 700;
+      color: #020817; cursor: pointer; white-space: nowrap;
+      box-shadow: 0 4px 24px rgba(56,189,248,0.35);
+      transition: transform 0.15s, box-shadow 0.2s;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .go-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(56,189,248,0.5); }
+    .go-btn:active { transform: translateY(0); }
+
+    .opts-row {
+      display: flex; flex-wrap: wrap; gap: 20px; align-items: center;
+      padding-top: 20px; border-top: 1px solid var(--border);
+    }
+    .opt-group { display: flex; align-items: center; gap: 9px; }
+    .opt-label { font-size: 0.78rem; color: var(--muted2); }
+    .server-sel {
+      background: rgba(5,7,15,0.8); border: 1px solid var(--border);
+      border-radius: 8px; padding: 7px 10px; font-family: 'Sora', sans-serif;
+      font-size: 0.78rem; color: var(--text); outline: none; cursor: pointer;
+    }
+    .server-sel:focus { border-color: var(--accent); }
+    .toggles { display: flex; gap: 16px; flex-wrap: wrap; margin-left: auto; }
+    .tog { display: flex; align-items: center; gap: 7px; font-size: 0.78rem; color: var(--muted2); cursor: pointer; user-select: none; }
+    .tog input { display: none; }
+    .tog-track { width: 34px; height: 18px; background: rgba(5,7,15,0.9); border: 1px solid var(--border); border-radius: 9px; position: relative; transition: background 0.25s, border-color 0.25s; }
+    .tog-thumb { position: absolute; left: 2px; top: 2px; width: 12px; height: 12px; border-radius: 50%; background: var(--muted); transition: transform 0.25s, background 0.25s; }
+    .tog input:checked + .tog-track { background: rgba(56,189,248,0.15); border-color: var(--accent); }
+    .tog input:checked + .tog-track .tog-thumb { transform: translateX(16px); background: var(--accent); }
+
+    .loading-overlay {
+      display: none; position: fixed; inset: 0; z-index: 500;
+      background: var(--bg); flex-direction: column; align-items: center; justify-content: center; gap: 20px;
+    }
+    .loading-overlay.show { display: flex; }
+    .loading-ring {
+      width: 56px; height: 56px; border-radius: 50%;
+      border: 3px solid rgba(56,189,248,0.15); border-top-color: var(--accent);
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-text { font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; color: var(--accent); max-width: 400px; text-align: center; }
+    .loading-cancel {
+      margin-top: 8px; background: none; border: 1px solid var(--border); border-radius: 8px;
+      padding: 8px 20px; color: var(--muted2); cursor: pointer; font-family: 'Sora', sans-serif; font-size: 0.8rem;
+    }
+    .loading-cancel:hover { color: var(--text); }
+
+    .quick-links { max-width: 760px; margin: 18px auto 0; display: flex; flex-wrap: wrap; gap: 8px; }
+    .ql-label { font-size: 0.72rem; color: var(--muted); margin-right: 4px; }
+    .ql-btn {
+      background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 20px;
+      padding: 5px 14px; font-size: 0.72rem; color: var(--muted2); cursor: pointer;
+      font-family: 'Sora', sans-serif; transition: color 0.2s, border-color 0.2s, background 0.2s;
+    }
+    .ql-btn:hover { color: var(--text); border-color: var(--border-h); background: rgba(56,189,248,0.04); }
+
+    .stats { display: flex; justify-content: center; gap: 56px; padding: 64px 24px 0; flex-wrap: wrap; }
+    .stat { text-align: center; }
+    .stat-num {
+      font-size: 2rem; font-weight: 800; letter-spacing: -0.03em;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    .stat-label { font-size: 0.75rem; color: var(--muted); margin-top: 4px; }
+
+    .features { max-width: 1020px; margin: 64px auto 0; padding: 0 24px; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+    .feat {
+      background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 26px 24px;
+      transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+    }
+    .feat:hover { border-color: var(--border-h); transform: translateY(-3px); box-shadow: 0 16px 40px rgba(0,0,0,0.3); }
+    .feat-icon { font-size: 26px; margin-bottom: 14px; display: block; }
+    .feat h3 { font-size: 0.95rem; font-weight: 600; margin-bottom: 8px; }
+    .feat p { font-size: 0.82rem; color: var(--muted2); line-height: 1.65; }
+
+    .servers-section { max-width: 760px; margin: 64px auto 0; padding: 0 24px; }
+    .sec-title { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin-bottom: 16px; }
+    .server-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
+    .sv {
+      background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+      padding: 14px 16px; display: flex; align-items: center; gap: 12px;
+      cursor: pointer; transition: border-color 0.2s, background 0.2s;
+    }
+    .sv:hover { border-color: var(--border-h); }
+    .sv.active { border-color: var(--accent); background: rgba(56,189,248,0.04); }
+    .sv-flag { font-size: 22px; }
+    .sv-info { flex: 1; }
+    .sv-name { font-size: 0.85rem; font-weight: 600; }
+    .sv-ping { font-size: 0.7rem; color: var(--success); font-family: 'JetBrains Mono', monospace; margin-top: 2px; }
+    .sv-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--success); box-shadow: 0 0 6px var(--success); }
+
+    footer { text-align: center; padding: 60px 24px 48px; color: var(--muted); font-size: 0.78rem; line-height: 1.7; }
+    footer a { color: var(--muted2); text-decoration: none; }
+    footer a:hover { color: var(--accent); }
+
+    @media (max-width: 640px) {
+      nav { padding: 16px 20px; }
+      .nav-links { display: none; }
+      .proxy-box { padding: 24px 20px 20px; }
+      .input-row { flex-direction: column; }
+      .go-btn { justify-content: center; }
+      .opts-row { flex-direction: column; align-items: flex-start; }
+      .toggles { margin-left: 0; }
+      .stats { gap: 32px; }
+    }
+    @keyframes shake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-8px)} 40%{transform:translateX(8px)} 60%{transform:translateX(-5px)} 80%{transform:translateX(5px)} }
+  </style>
+</head>
+<body>
+<div class="page">
+  <nav>
+    <a class="logo" href="/">
+      <div class="logo-mark">S</div>
+      <span class="logo-text">Swift<span>Proxy</span></span>
+    </a>
+    <div class="nav-links">
+      <a href="#features">기능</a>
+      <a href="#servers">서버</a>
+      <a href="#faq">FAQ</a>
+    </div>
+    <div class="nav-pill"><div class="live-dot"></div>ONLINE</div>
+  </nav>
+
+  <section class="hero">
+    <div class="hero-tag"><span class="blink">●</span> 무료 익명 웹 프록시</div>
+    <h1>인터넷을 <span class="grad">자유롭게</span><br/>어디서든 익명으로</h1>
+    <p class="hero-sub">차단된 사이트 우회, 개인정보 보호, 익명 브라우징.<br/>설치 필요 없이 바로 사용하세요.</p>
+
+    <div class="proxy-box">
+      <div class="input-row">
+        <div class="url-wrap">
+          <span class="url-icon">🔗</span>
+          <input class="url-input" id="urlInput" type="text"
+            placeholder="https://example.com 주소를 입력하세요..."
+            autocomplete="off" spellcheck="false" />
+        </div>
+        <button class="go-btn" id="goBtn" onclick="startProxy()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          이동
+        </button>
+      </div>
+
+      <div class="opts-row">
+        <div class="opt-group">
+          <span class="opt-label">서버</span>
+          <select class="server-sel" id="serverSel">
+            <option value="KR">🇰🇷 한국 (Seoul)</option>
+            <option value="US">🇺🇸 미국 (New York)</option>
+            <option value="JP">🇯🇵 일본 (Tokyo)</option>
+            <option value="SG">🇸🇬 싱가포르</option>
+            <option value="DE">🇩🇪 독일 (Frankfurt)</option>
+          </select>
+        </div>
+        <div class="toggles">
+          <label class="tog"><input type="checkbox" id="togEncrypt" checked/><div class="tog-track"><div class="tog-thumb"></div></div>암호화</label>
+          <label class="tog"><input type="checkbox" id="togCookies"/><div class="tog-track"><div class="tog-thumb"></div></div>쿠키 허용</label>
+          <label class="tog"><input type="checkbox" id="togScript" checked/><div class="tog-track"><div class="tog-thumb"></div></div>스크립트</label>
+        </div>
+      </div>
+    </div>
+
+    <div class="quick-links">
+      <span class="ql-label">빠른 접속:</span>
+      <button class="ql-btn" onclick="loadQuick('https://www.google.com')">🔍 Google</button>
+      <button class="ql-btn" onclick="loadQuick('https://www.youtube.com')">▶ YouTube</button>
+      <button class="ql-btn" onclick="loadQuick('https://www.reddit.com')">📋 Reddit</button>
+      <button class="ql-btn" onclick="loadQuick('https://twitter.com')">🐦 Twitter/X</button>
+      <button class="ql-btn" onclick="loadQuick('https://www.wikipedia.org')">📚 Wikipedia</button>
+      <button class="ql-btn" onclick="loadQuick('https://www.naver.com')">🟢 Naver</button>
+    </div>
+  </section>
+
+  <div class="stats">
+    <div class="stat"><div class="stat-num" id="reqCount">0</div><div class="stat-label">오늘 처리된 요청</div></div>
+    <div class="stat"><div class="stat-num">5</div><div class="stat-label">글로벌 서버</div></div>
+    <div class="stat"><div class="stat-num">99.9%</div><div class="stat-label">가동 시간</div></div>
+    <div class="stat"><div class="stat-num">0원</div><div class="stat-label">완전 무료</div></div>
+  </div>
+
+  <div class="features" id="features">
+    <div class="feat"><span class="feat-icon">🛡️</span><h3>완전한 익명성</h3><p>실제 IP 주소를 숨기고 익명으로 인터넷을 탐색합니다. 추적 없음, 로그 없음.</p></div>
+    <div class="feat"><span class="feat-icon">⚡</span><h3>초고속 연결</h3><p>최적화된 글로벌 서버 네트워크로 빠른 로딩 속도를 보장합니다.</p></div>
+    <div class="feat"><span class="feat-icon">🔐</span><h3>SSL 암호화</h3><p>모든 트래픽은 256비트 SSL로 암호화되어 안전하게 전송됩니다.</p></div>
+    <div class="feat"><span class="feat-icon">🌍</span><h3>차단 우회</h3><p>학교, 직장, 국가에서 차단된 사이트에 자유롭게 접속하세요.</p></div>
+    <div class="feat"><span class="feat-icon">🍪</span><h3>쿠키 & 스크립트</h3><p>쿠키와 JavaScript를 선택적으로 활성화하여 호환성을 높입니다.</p></div>
+    <div class="feat"><span class="feat-icon">📱</span><h3>모든 기기 지원</h3><p>PC, 스마트폰, 태블릿 등 모든 기기에서 설치 없이 사용 가능합니다.</p></div>
+  </div>
+
+  <div class="servers-section" id="servers">
+    <div class="sec-title">서버 현황</div>
+    <div class="server-grid">
+      <div class="sv active" onclick="selectServer(this,'KR')"><span class="sv-flag">🇰🇷</span><div class="sv-info"><div class="sv-name">한국</div><div class="sv-ping">12ms</div></div><div class="sv-dot"></div></div>
+      <div class="sv" onclick="selectServer(this,'US')"><span class="sv-flag">🇺🇸</span><div class="sv-info"><div class="sv-name">미국</div><div class="sv-ping">89ms</div></div><div class="sv-dot"></div></div>
+      <div class="sv" onclick="selectServer(this,'JP')"><span class="sv-flag">🇯🇵</span><div class="sv-info"><div class="sv-name">일본</div><div class="sv-ping">28ms</div></div><div class="sv-dot"></div></div>
+      <div class="sv" onclick="selectServer(this,'SG')"><span class="sv-flag">🇸🇬</span><div class="sv-info"><div class="sv-name">싱가포르</div><div class="sv-ping">54ms</div></div><div class="sv-dot"></div></div>
+      <div class="sv" onclick="selectServer(this,'DE')"><span class="sv-flag">🇩🇪</span><div class="sv-info"><div class="sv-name">독일</div><div class="sv-ping">143ms</div></div><div class="sv-dot"></div></div>
+    </div>
+  </div>
+
+  <div style="max-width:760px;margin:64px auto 0;padding:0 24px" id="faq">
+    <div class="sec-title">자주 묻는 질문</div>
+    <div id="faqList"></div>
+  </div>
+
+  <footer>
+    <p>© 2025 SwiftProxy. 모든 권리 보유.</p>
+    <p style="margin-top:8px"><a href="#">이용약관</a> · <a href="#">개인정보처리방침</a> · <a href="#">문의하기</a></p>
+    <p style="margin-top:12px;font-size:0.7rem;max-width:480px;margin-left:auto;margin-right:auto">본 서비스는 합법적인 용도로만 사용하세요.</p>
+  </footer>
+</div>
+
+<!-- 로딩 오버레이 -->
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="loading-ring"></div>
+  <div class="loading-text" id="loadingText">연결 중...</div>
+  <button class="loading-cancel" onclick="cancelLoad()">취소</button>
+</div>
+
+<script>
+  // FAQ
+  const faqs = [
+    { q: '웹 프록시란 무엇인가요?', a: '웹 프록시는 사용자와 인터넷 사이에서 중계 역할을 하는 서버입니다. 실제 IP를 숨기고 차단된 사이트에 접속할 수 있게 해줍니다.' },
+    { q: '완전히 무료인가요?', a: '네, SwiftProxy는 회원가입 없이 완전 무료로 제공됩니다.' },
+    { q: '내 개인정보는 안전한가요?', a: '브라우징 기록을 저장하지 않으며, 모든 트래픽은 SSL로 암호화됩니다.' },
+    { q: '일부 사이트가 안 열리는 이유는?', a: 'Google, YouTube, Netflix 등 대형 사이트들은 자체 프록시 감지 시스템으로 접근을 차단할 수 있습니다. 이는 기술적 한계입니다.' },
+  ];
+  const fl = document.getElementById('faqList');
+  faqs.forEach((f,i) => {
+    fl.innerHTML += `<div style="border:1px solid var(--border);border-radius:12px;margin-bottom:10px;overflow:hidden">
+      <div onclick="tFaq(${i})" style="padding:16px 20px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;font-size:0.9rem;font-weight:600">
+        ${f.q}<span id="fa${i}" style="color:var(--muted);transition:transform 0.2s;display:inline-block">▼</span>
+      </div>
+      <div id="fb${i}" style="display:none;padding:0 20px 16px;font-size:0.83rem;color:var(--muted2);line-height:1.65">${f.a}</div>
+    </div>`;
+  });
+  function tFaq(i) {
+    const a=document.getElementById('fb'+i), ar=document.getElementById('fa'+i), open=a.style.display==='block';
+    a.style.display=open?'none':'block'; ar.style.transform=open?'':'rotate(180deg)';
+  }
+
+  // Counter
+  let count = Math.floor(Math.random()*50000)+100000;
+  document.getElementById('reqCount').textContent = count.toLocaleString('ko-KR');
+  setInterval(()=>{ count+=Math.floor(Math.random()*3)+1; document.getElementById('reqCount').textContent=count.toLocaleString('ko-KR'); },2000);
+
+  // Enter key
+  document.getElementById('urlInput').addEventListener('keydown',e=>{ if(e.key==='Enter') startProxy(); });
+
+  function selectServer(el,code) {
+    document.querySelectorAll('.sv').forEach(s=>s.classList.remove('active'));
+    el.classList.add('active');
+    document.getElementById('serverSel').value=code;
+  }
+
+  function loadQuick(url) {
+    document.getElementById('urlInput').value=url;
+    startProxy();
+  }
+
+  function cancelLoad() {
+    document.getElementById('loadingOverlay').classList.remove('show');
+  }
+
+  // ── 핵심: 바로 이동 (HEAD 체크 없음) ──
+  function startProxy() {
+    let url = document.getElementById('urlInput').value.trim();
+    if (!url) {
+      const inp = document.getElementById('urlInput');
+      inp.style.animation='shake 0.4s ease';
+      setTimeout(()=>inp.style.animation='',400);
+      return;
+    }
+    if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+
+    const overlay = document.getElementById('loadingOverlay');
+    const loadingText = document.getElementById('loadingText');
+
+    loadingText.textContent = '연결 중: ' + url;
+    overlay.classList.add('show');
+
+    // Vercel 서버리스 /api/proxy 로 바로 이동
+    window.location.href = '/api/proxy?url=' + encodeURIComponent(url);
+  }
+</script>
+</body>
+</html>
