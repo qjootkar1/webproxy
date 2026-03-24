@@ -1,28 +1,11 @@
 {
-  "version": 2,
-  "functions": {
-    "api/proxy.js": {
-      "maxDuration": 30,
-      "memory": 1024
-    }
-  },
-  "rewrites": [
-    {
-      "source": "/api/proxy",
-      "destination": "/api/proxy"
-    },
-    {
-      "source": "/((?!api/).*)",
-      "destination": "/public/index.html"
-    }
-  ],
   "headers": [
     {
-      "source": "/api/(.*)",
+      "source": "/(.*)",
       "headers": [
-        { "key": "Access-Control-Allow-Origin", "value": "*" },
-        { "key": "Access-Control-Allow-Methods", "value": "GET, POST, OPTIONS" },
-        { "key": "Access-Control-Allow-Headers", "value": "*" }
+        { "key": "Content-Security-Policy", "value": "default-src 'self' https:; script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com; img-src *; style-src 'self' 'unsafe-inline';" },
+        { "key": "Strict-Transport-Security", "value": "max-age=31536000; includeSubDomains; preload" },
+        { "key": "X-Content-Type-Options", "value": "nosniff" }
       ]
     }
   ]
