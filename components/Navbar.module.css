@@ -1,0 +1,134 @@
+.nav {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: rgba(10,10,10,0.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+  height: 56px;
+}
+
+.inner {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 20px;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-shrink: 0;
+  text-decoration: none;
+}
+
+.logoIcon {
+  font-size: 18px;
+  color: var(--accent);
+  line-height: 1;
+}
+
+.logoText {
+  font-family: 'Space Mono', monospace;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.5px;
+}
+
+.logoAccent {
+  color: var(--accent);
+}
+
+.searchForm {
+  flex: 1;
+  max-width: 540px;
+  display: flex;
+  align-items: center;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  padding: 0 6px 0 14px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  height: 38px;
+}
+
+.searchForm.focused {
+  border-color: #444;
+  box-shadow: 0 0 0 3px rgba(255,60,60,0.1);
+}
+
+.searchIcon {
+  width: 16px;
+  height: 16px;
+  color: var(--text3);
+  flex-shrink: 0;
+  margin-right: 8px;
+}
+
+.searchInput {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text);
+  font-size: 13px;
+  font-family: 'Noto Sans KR', sans-serif;
+  min-width: 0;
+}
+
+.searchInput::placeholder { color: var(--text3); }
+.searchInput::-webkit-search-cancel-button { display: none; }
+
+.clearBtn {
+  background: none;
+  border: none;
+  color: var(--text3);
+  font-size: 12px;
+  padding: 4px 6px;
+  border-radius: 50%;
+  transition: color 0.15s;
+}
+.clearBtn:hover { color: var(--text); }
+
+.searchBtn {
+  background: var(--accent);
+  border: none;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 5px 14px;
+  border-radius: 20px;
+  transition: background 0.15s;
+  flex-shrink: 0;
+  margin-left: 4px;
+}
+.searchBtn:hover { background: #e02a2a; }
+
+.links {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.link {
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--text2);
+  transition: color 0.15s, background 0.15s;
+}
+.link:hover { color: var(--text); background: var(--bg3); }
+.link.active { color: var(--accent); font-weight: 500; }
+
+@media (max-width: 640px) {
+  .links { display: none; }
+  .inner { gap: 10px; }
+  .searchForm { max-width: none; }
+}
